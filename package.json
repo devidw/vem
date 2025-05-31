@@ -1,0 +1,18 @@
+{
+  "name": "vem",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx ./vem.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@lmstudio/sdk": "^1.2.0",
+    "chromadb": "^2.4.6",
+    "zod": "^3.25.42"
+  }
+}
