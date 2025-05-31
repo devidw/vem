@@ -48,6 +48,9 @@ with lazy.vim
 },
 ```
 
+-   hit control + space to search
+    -   (why not enter? bc once results are there, enter is already reserved for opening them)
+
 ## run
 
 see ./config.ts

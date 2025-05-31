@@ -3,6 +3,7 @@ local finders = require("telescope.finders")
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 local conf = require("telescope.config").values
+local previewers = require("telescope.previewers")
 
 -- Async search function, now top-level
 local latest_prompt = ""
@@ -48,7 +49,11 @@ local function do_search(prompt, callback, config_path, repo_path)
       local entries = {}
       for _, item in ipairs(parsed) do
         if item.path then
-          table.insert(entries, {path = item.path, distance = item.distance})
+          table.insert(entries, {
+            path = item.path,
+            distance = item.distance,
+            content = item.item and item.item.content or ""
+          })
         end
       end
       -- Persist last search
@@ -91,37 +96,61 @@ function M.search(opts)
         }
       end,
     },
+    previewer = previewers.new_buffer_previewer({
+      title = "Content Preview",
+      define_preview = function(self, entry, status)
+        if entry.value and entry.value.content then
+          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, vim.split(entry.value.content, "\n"))
+        end
+      end,
+    }),
     sorter = require('telescope.sorters').empty(),
     attach_mappings = function(prompt_bufnr, map)
       local action_set = require('telescope.actions.set')
       local action_state = require('telescope.actions.state')
-      -- Override <CR> to perform the search or open the file
-      map('i', '<CR>', function()
+      
+      -- Add Ctrl+F mapping for rerunning search
+      map('i', '<C-Space>', function()
         local picker = action_state.get_current_picker(prompt_bufnr)
-        local selection = action_state.get_selected_entry()
         local prompt = action_state.get_current_line()
-        -- If there is a selection, open it; otherwise, search
+        -- Clear results immediately to show feedback
+        results = {}
+        picker:refresh(finders.new_table {
+          results = results,
+          entry_maker = function(entry)
+            return {
+              value = entry,
+              display = string.format("%s  [%.4f]", entry.path, entry.distance or 0),
+              ordinal = entry.path,
+            }
+          end,
+        }, { reset_prompt = false })
+        -- Run the async search
+        local function update_results(new_results)
+          results = new_results
+          last_search_term = prompt
+          last_results = new_results
+          picker:refresh(finders.new_table {
+            results = results,
+            entry_maker = function(entry)
+              return {
+                value = entry,
+                display = string.format("%s  [%.4f]", entry.path, entry.distance or 0),
+                ordinal = entry.path,
+              }
+            end,
+          }, { reset_prompt = false })
+        end
+        do_search(prompt, update_results, config_path, repo_path)
+      end)
+
+      -- Override <CR> to only open files
+      map('i', '<CR>', function()
+        local selection = action_state.get_selected_entry()
+        -- Only open if there is a valid selection
         if selection and selection.value and selection.value.path and type(selection.value.path) == "string" and selection.value.path ~= "" then
           actions.close(prompt_bufnr)
           vim.cmd("edit " .. selection.value.path)
-        else
-          -- Run the async search
-          local function update_results(new_results)
-            results = new_results
-            last_search_term = prompt
-            last_results = new_results
-            picker:refresh(finders.new_table {
-              results = results,
-              entry_maker = function(entry)
-                return {
-                  value = entry,
-                  display = string.format("%s  [%.4f]", entry.path, entry.distance or 0),
-                  ordinal = entry.path,
-                }
-              end,
-            }, { reset_prompt = false })
-          end
-          do_search(prompt, update_results, config_path, repo_path)
         end
       end)
       return true
