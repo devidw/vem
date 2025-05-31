@@ -52,7 +52,9 @@ local function do_search(prompt, callback, config_path, repo_path)
           table.insert(entries, {
             path = item.path,
             distance = item.distance,
-            content = item.item and item.item.content or ""
+            content = item.content,
+            collection_id = item.collection_id,
+            id = item.id,
           })
         end
       end
@@ -91,7 +93,7 @@ function M.search(opts)
       entry_maker = function(entry)
         return {
           value = entry,
-          display = string.format("%s  [%.4f]", entry.path, entry.distance or 0),
+          display = string.format("%s/%s", entry.collection_id or "", entry.id or ""),
           ordinal = entry.path,
         }
       end,
@@ -120,7 +122,7 @@ function M.search(opts)
           entry_maker = function(entry)
             return {
               value = entry,
-              display = string.format("%s  [%.4f]", entry.path, entry.distance or 0),
+              display = string.format("%s/%s", entry.collection_id or "", entry.id or ""),
               ordinal = entry.path,
             }
           end,
@@ -135,7 +137,7 @@ function M.search(opts)
             entry_maker = function(entry)
               return {
                 value = entry,
-                display = string.format("%s  [%.4f]", entry.path, entry.distance or 0),
+                display = string.format("%s/%s", entry.collection_id or "", entry.id or ""),
                 ordinal = entry.path,
               }
             end,

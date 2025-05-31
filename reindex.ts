@@ -9,26 +9,7 @@ import fs from "node:fs/promises"
 import { CONFIG } from "./config.js"
 import path from "node:path"
 import { fs_get } from "./fs_api.js"
-import { COLLECTIONS, upsert_vec } from "./db.js"
-
-async function index_vec({
-    collection_id,
-    id,
-}: {
-    collection_id: string
-    id: string
-}) {
-    const doc = await fs_get({
-        collection_id,
-        id,
-    })
-
-    if (!doc) {
-        return
-    }
-
-    await upsert_vec(doc)
-}
+import { COLLECTIONS, upsert_vec } from "./vec.js"
 
 async function reindex_collection({
     collection_id,
@@ -80,14 +61,21 @@ async function reindex_collection({
         return
     }
 
-    await Promise.all(
-        ids_to_index.map(async (id) => {
-            return index_vec({
-                collection_id,
-                id,
-            })
-        }),
-    )
+    // await Promise.all(
+    //     ids_to_index.map(async (id) => {
+    //         return upsert_vec({
+    //             collection_id,
+    //             id,
+    //         })
+    //     }),
+    // )
+
+    for (const id of ids_to_index) {
+        await upsert_vec({
+            collection_id,
+            id,
+        })
+    }
 
     await fs.writeFile(dir + "/_state.txt", new Date().toISOString())
 }
@@ -116,11 +104,15 @@ async function collection_watch({ collection_id }: { collection_id: string }) {
 
         switch (event.eventType) {
             case "change": {
-                await index_vec({ collection_id, id })
+                await upsert_vec({ collection_id, id })
                 break
             }
             case "rename": {
-                await collection.delete({ ids: [id] }) // id is the prev filename, now out of date
+                await collection.delete({
+                    where: {
+                        file: id,
+                    },
+                }) // id is the prev filename, now out of date
                 await reindex_collection({ collection_id })
                 break
             }

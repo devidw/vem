@@ -11,6 +11,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@langchain/textsplitters": "^0.1.0",
     "@lmstudio/sdk": "^1.2.0",
     "chromadb": "^2.4.6",
     "zod": "^3.25.42"

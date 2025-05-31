@@ -1,11 +1,12 @@
 import { CONFIG } from "./config.js"
-import { COLLECTIONS } from "./db.js"
+import { COLLECTIONS } from "./vec.js"
 import { emb } from "./emb.js"
 import { fs_get } from "./fs_api.js"
-import type { Where } from "chromadb"
+import { IncludeEnum, type Where } from "chromadb"
+import { Doc } from "./types.js"
 
-const MIN_CLOSENESS = 1
-const COUNT = 5
+const MIN_CLOSENESS = Number.POSITIVE_INFINITY
+const COUNT = 10
 
 export async function query({
     query,
@@ -26,45 +27,58 @@ export async function query({
         queryEmbeddings: [embedding],
         nResults: n ?? 5,
         where: where,
+        include: [IncludeEnum.Distances, IncludeEnum.Metadatas],
     })
+
+    // console.info(JSON.stringify(out, null, 4))
 
     if (!out.distances) {
         console.warn("got no distances for sim search")
         return []
     }
 
-    const all = await Promise.all(
-        out.ids[0].map((id) => fs_get({ collection_id, id })),
-    )
-    const items = all.filter(Boolean) as any[]
-
-    const merged: {
-        distance: number
+    const all: (Doc & {
         path: string
-        item: {
-            id: string
-            content: string
-            collection_id: string
-        }
-    }[] = []
+        distance: number
+        count: number
+    })[] = []
 
     for (const [i, id] of out.ids[0].entries()) {
-        const item = items.find((one) => one.id === id)
+        const meta_data = out.metadatas[0][i]
 
-        if (!item) {
-            await vec_collection.delete({ ids: [id] })
-            console.info(`del orphan ${collection_id} ${id}`)
+        if (!meta_data || typeof meta_data["file"] !== "string") {
             continue
         }
 
-        merged.push({
+        const file_id = meta_data["file"]
+
+        const exisitng = all.find((a) => a.id === file_id)
+
+        if (exisitng) {
+            exisitng.count++
+            continue
+        }
+
+        const doc = await fs_get({
+            collection_id: collection_id,
+            id: file_id,
+        })
+
+        if (!doc) {
+            await vec_collection.delete({ ids: [id] })
+            console.info(`skip orphan ${collection_id} ${id}`)
+            continue
+        }
+
+        all.push({
+            ...doc,
             distance: out.distances![0][i],
-            path: CONFIG.collections[collection_id] + "/" + item.id,
-            item,
+            path: CONFIG.collections[collection_id] + "/" + doc.id,
+            count: 1,
         })
     }
 
-    return merged
+    return all
 }
 
 /**
@@ -96,15 +110,22 @@ export async function meta_query({ input }: { input: string }) {
                 return false
             }
 
-            if (mem.item.content.trim().length === 0) {
+            if (mem.content.trim().length === 0) {
                 return false
             }
 
             return true
         })
-        .sort((a, b) => a.distance - b.distance)
+        .sort((a, b) => {
+            // First sort by count (descending)
+            if (b.count !== a.count) {
+                return b.count - a.count
+            }
+            // Then sort by distance (ascending)
+            return a.distance - b.distance
+        })
 
-    return outs.slice(0, COUNT)
+    return outs
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
