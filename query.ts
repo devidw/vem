@@ -13,11 +13,13 @@ export async function query({
     collection_id,
     n,
     where,
+    keyword_match,
 }: {
     query: string
     collection_id: string
     n?: number
     where?: Where
+    keyword_match?: boolean
 }) {
     const { embedding } = await emb.embed(query)
 
@@ -27,7 +29,16 @@ export async function query({
         queryEmbeddings: [embedding],
         nResults: n ?? 5,
         where: where,
-        include: [IncludeEnum.Distances, IncludeEnum.Metadatas],
+        whereDocument: keyword_match
+            ? {
+                  $contains: query,
+              }
+            : undefined,
+        include: [
+            IncludeEnum.Distances,
+            IncludeEnum.Metadatas,
+            IncludeEnum.Documents,
+        ],
     })
 
     // console.info(JSON.stringify(out, null, 4))
@@ -37,27 +48,20 @@ export async function query({
         return []
     }
 
-    const all: (Doc & {
+    const results: (Doc & {
         path: string
         distance: number
-        count: number
     })[] = []
 
     for (const [i, id] of out.ids[0].entries()) {
         const meta_data = out.metadatas[0][i]
+        const content = out.documents[0][i]
 
-        if (!meta_data || typeof meta_data["file"] !== "string") {
+        if (!meta_data || typeof meta_data["file"] !== "string" || !content) {
             continue
         }
 
         const file_id = meta_data["file"]
-
-        const exisitng = all.find((a) => a.id === file_id)
-
-        if (exisitng) {
-            exisitng.count++
-            continue
-        }
 
         const doc = await fs_get({
             collection_id: collection_id,
@@ -70,15 +74,15 @@ export async function query({
             continue
         }
 
-        all.push({
+        results.push({
             ...doc,
+            content: content,
             distance: out.distances![0][i],
             path: CONFIG.collections[collection_id] + "/" + doc.id,
-            count: 1,
         })
     }
 
-    return all
+    return results
 }
 
 /**
@@ -92,13 +96,20 @@ export async function query({
  * lets pull in more than we want to pick into the prompt
  * compute ranks and then only take the top_x
  */
-export async function meta_query({ input }: { input: string }) {
+export async function meta_query({
+    input,
+    keyword_match,
+}: {
+    input: string
+    keyword_match?: boolean
+}) {
     const docs = await Promise.all(
         Object.keys(CONFIG.collections).map((collection_id) =>
             query({
                 query: input,
                 collection_id: collection_id,
                 n: COUNT,
+                keyword_match,
             }),
         ),
     )
@@ -117,11 +128,7 @@ export async function meta_query({ input }: { input: string }) {
             return true
         })
         .sort((a, b) => {
-            // First sort by count (descending)
-            if (b.count !== a.count) {
-                return b.count - a.count
-            }
-            // Then sort by distance (ascending)
+            // Sort by distance (ascending)
             return a.distance - b.distance
         })
 
@@ -131,6 +138,7 @@ export async function meta_query({ input }: { input: string }) {
 if (import.meta.url === `file://${process.argv[1]}`) {
     const out = await meta_query({
         input: process.argv[3],
+        keyword_match: process.argv[4] === "1",
     })
     console.info(JSON.stringify(out, null, 4))
 }

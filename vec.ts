@@ -71,6 +71,7 @@ export async function upsert_vec({
     try {
         await collection.upsert({
             ids: docs.map((_) => randomUUID()),
+            documents: docs,
             embeddings: embeddings,
             metadatas: docs.map((_) => meta),
         })

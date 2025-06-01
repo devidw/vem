@@ -5,10 +5,13 @@ local action_state = require("telescope.actions.state")
 local conf = require("telescope.config").values
 local previewers = require("telescope.previewers")
 
--- Async search function, now top-level
+-- State variables
 local latest_prompt = ""
 local last_search_term = nil
 local last_results = nil
+local keyword_match_enabled = false
+
+-- Async search function, now top-level
 local function do_search(prompt, callback, config_path, repo_path)
   if prompt == "" then
     if callback then
@@ -27,7 +30,7 @@ local function do_search(prompt, callback, config_path, repo_path)
   local result = ""
   print("Spawning API call with args: " .. repo_path .. " " .. config_path .. " and " .. prompt)
   handle = vim.loop.spawn("sh", {
-    args = {"-c", repo_path .. "/api.sh '" .. repo_path .. "' '" .. config_path .. "' '" .. prompt .. "'"},
+    args = {"-c", repo_path .. "/api.sh '" .. repo_path .. "' '" .. config_path .. "' '" .. prompt .. "' '" .. (keyword_match_enabled and "1" or "0") .. "'"},
     stdio = {nil, stdout, nil},
   }, function()
     stdout:close()
@@ -111,8 +114,16 @@ function M.search(opts)
       local action_set = require('telescope.actions.set')
       local action_state = require('telescope.actions.state')
       
-      -- Add Ctrl+F mapping for rerunning search
-      map('i', '<C-Space>', function()
+      -- Add leader+k mapping to toggle keyword matching in both normal and insert modes
+      local function toggle_keyword_match()
+        keyword_match_enabled = not keyword_match_enabled
+        vim.notify("Keyword matching " .. (keyword_match_enabled and "enabled" or "disabled"), vim.log.levels.INFO)
+      end
+
+      map('n', '<leader>k', toggle_keyword_match)
+
+      -- Add Ctrl+Space mapping for rerunning search in both modes
+      local function do_search_update()
         local picker = action_state.get_current_picker(prompt_bufnr)
         local prompt = action_state.get_current_line()
         -- Clear results immediately to show feedback
@@ -144,7 +155,10 @@ function M.search(opts)
           }, { reset_prompt = false })
         end
         do_search(prompt, update_results, config_path, repo_path)
-      end)
+      end
+
+      map('i', '<C-Space>', do_search_update)
+      map('n', '<C-Space>', do_search_update)
 
       -- Override <CR> to only open files
       map('i', '<CR>', function()
@@ -158,6 +172,9 @@ function M.search(opts)
       return true
     end,
   }):find()
+
+  -- Show initial state when entering picker
+  vim.notify("Keyword matching " .. (keyword_match_enabled and "enabled" or "disabled"), vim.log.levels.INFO)
 end
 
 -- ⬇ Register AFTER defining the search function
