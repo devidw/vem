@@ -51,9 +51,9 @@ with lazy.vim
 -   hit control + space to search
     -   (why not enter? bc once results are there, enter is already reserved for opening them)
 
-## run
+## run daemon
 
-see ./config.ts
+for configuration see ./config.ts
 
 ```
 pnpm dev ./path/to/my/config.json
@@ -63,6 +63,14 @@ pnpm dev ./path/to/my/config.json
 -   maybe loads the emb model
 -   reindex all collections
 -   start fs watchers to re-embed
+
+macos launch agent setup:
+
+```
+# first update vem.plist to point to your daemon script, then:
+cp vem.plist ~/Library/LaunchAgents/gdn.wolf.vem.plist
+launchctl load ~/Library/LaunchAgents/gdn.wolf.vem.plist
+```
 
 ---
 

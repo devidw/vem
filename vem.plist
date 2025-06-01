@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>gdn.wolf.vem</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/devidw/Desktop/code/dots/scripts/vem.sh</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/vem.out</string>
+
+  <key>StandardErrorPath</key>
+  <string>/tmp/vem.err</string>
+</dict>
+</plist>
+
