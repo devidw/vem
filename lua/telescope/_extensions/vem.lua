@@ -105,7 +105,32 @@ function M.search(opts)
       title = "Content Preview",
       define_preview = function(self, entry, status)
         if entry.value and entry.value.content then
-          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, vim.split(entry.value.content, "\n"))
+          local search_term = status.prompt
+          print("status.prompt:", search_term, "last_search_term:", last_search_term)
+          if (not search_term or search_term == "") and last_search_term then
+            search_term = last_search_term
+          end
+          local lines = vim.split(entry.value.content, "\n")
+          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+          vim.api.nvim_buf_set_option(self.state.bufnr, 'filetype', 'markdown')
+          if search_term and search_term ~= "" then
+            local lower_term = string.lower(search_term)
+            for i, line in ipairs(lines) do
+              local lower_line = string.lower(line)
+              local start = 1
+              while true do
+                local s, e = lower_line:find(lower_term, start, true)
+                if not s then break end
+                print("Highlighting line", i, "from", s, "to", e, "with", line:sub(s, e), "search_term:", search_term)
+                vim.api.nvim_buf_add_highlight(self.state.bufnr, -1, 'Search', i-1, s-1, e)
+                start = e + 1
+              end
+            end
+          else
+            print("No search term for highlighting.")
+          end
+        else
+          print("No content to preview.")
         end
       end,
     }),
