@@ -18,6 +18,8 @@ process.on("SIGINT", () => {
  *
  */
 ;(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     const reindex = await import("./reindex.ts")
 
     await reindex.reindex_all()
